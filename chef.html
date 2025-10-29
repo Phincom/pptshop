@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT Bar - Chef's Dashboard</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #1a202c;
+            color: #e2e8f0;
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+        }
+        .orders-list {
+            background: #2d3748;
+            padding: 1rem;
+            overflow-y: auto;
+            height: 100vh;
+        }
+        .order-card {
+            background: #4a5568;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .order-card:hover {
+            transform: translateX(4px);
+        }
+        .order-card.selected {
+            background: #4299e1;
+        }
+        .order-id {
+            font-weight: bold;
+            color: #90cdf4;
+        }
+        .order-time {
+            font-size: 0.875rem;
+            color: #a0aec0;
+        }
+        .order-topic {
+            margin-top: 0.5rem;
+            font-weight: 500;
+        }
+        .details-panel {
+            padding: 2rem;
+            overflow-y: auto;
+            height: 100vh;
+        }
+        .no-selection {
+            display: flex;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            color: #a0aec0;
+        }
+        .details-content {
+            display: none;
+            max-width: 800px;
+        }
+        .details-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .status-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        .status-new { background: #9ae6b4; color: #22543d; }
+        .status-progress { background: #fbd38d; color: #744210; }
+        .status-ready { background: #90cdf4; color: #2c5282; }
+        
+        .detail-row {
+            margin-bottom: 1.5rem;
+        }
+        .detail-label {
+            font-size: 0.875rem;
+            color: #a0aec0;
+            margin-bottom: 0.25rem;
+        }
+        .detail-value {
+            font-size: 1rem;
+            color: #f7fafc;
+        }
+        .actions {
+            margin-top: 2rem;
+            display: flex;
+            gap: 1rem;
+        }
+        button {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .start-btn {
+            background: #48bb78;
+            color: white;
+        }
+        .complete-btn {
+            background: #4299e1;
+            color: white;
+        }
+        .print-btn {
+            background: #2d3748;
+            color: white;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #a0aec0;
+        }
+    </style>
+</head>
+<body>
+    <div class="orders-list" id="ordersList">
+        <div class="empty-state">No orders yet</div>
+    </div>
+
+    <div class="details-panel">
+        <div class="no-selection" id="noSelection">
+            Select an order to see details
+        </div>
+
+        <div class="details-content" id="detailsContent">
+            <div class="details-header">
+                <h2>Order Details</h2>
+                <span class="status-badge" id="statusBadge">New</span>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Order ID</div>
+                <div class="detail-value" id="detailId"></div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Time Received</div>
+                <div class="detail-value" id="detailTime"></div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Topic</div>
+                <div class="detail-value" id="detailTopic"></div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Style</div>
+                <div class="detail-value" id="detailVibe"></div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Colors</div>
+                <div class="detail-value" id="detailColors"></div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Extra Details</div>
+                <div class="detail-value" id="detailExtras"></div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Contact</div>
+                <div class="detail-value" id="detailContact"></div>
+            </div>
+
+            <div class="actions">
+                <button class="start-btn" onclick="startOrder()">Start Working</button>
+                <button class="complete-btn" onclick="completeOrder()">Mark Complete</button>
+                <button class="print-btn" onclick="printTicket()">Print Ticket</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const ORDERS_KEY = 'pptbar_orders';
+        let selectedOrder = null;
+
+        function formatTime(isoString) {
+            return new Date(isoString).toLocaleTimeString();
+        }
+
+        function updateOrdersList() {
+            const orders = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+            const list = document.getElementById('ordersList');
+            
+            if (orders.length === 0) {
+                list.innerHTML = '<div class="empty-state">No orders yet</div>';
+                return;
+            }
+
+            list.innerHTML = orders.map(order => `
+                <div class="order-card ${selectedOrder?.id === order.id ? 'selected' : ''}" 
+                     onclick="selectOrder('${order.id}')">
+                    <div class="order-id">${order.id}</div>
+                    <div class="order-time">${formatTime(order.timestamp)}</div>
+                    <div class="order-topic">${order.topic}</div>
+                </div>
+            `).join('');
+        }
+
+        function selectOrder(orderId) {
+            const orders = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+            selectedOrder = orders.find(o => o.id === orderId);
+            
+            document.getElementById('noSelection').style.display = 'none';
+            document.getElementById('detailsContent').style.display = 'block';
+            
+            // Update details panel
+            document.getElementById('detailId').textContent = selectedOrder.id;
+            document.getElementById('detailTime').textContent = formatTime(selectedOrder.timestamp);
+            document.getElementById('detailTopic').textContent = selectedOrder.topic;
+            document.getElementById('detailVibe').textContent = selectedOrder.vibe;
+            document.getElementById('detailColors').textContent = selectedOrder.colors;
+            document.getElementById('detailExtras').textContent = selectedOrder.details || 'No extra details';
+            document.getElementById('detailContact').textContent = selectedOrder.contact || 'No contact provided';
+            
+            // Update status badge
+            const badge = document.getElementById('statusBadge');
+            badge.textContent = selectedOrder.status;
+            badge.className = 'status-badge status-' + selectedOrder.status;
+            
+            updateOrdersList();
+        }
+
+        function startOrder() {
+            if (!selectedOrder) return;
+            updateOrderStatus('progress');
+        }
+
+        function completeOrder() {
+            if (!selectedOrder) return;
+            updateOrderStatus('ready');
+        }
+
+        function updateOrderStatus(status) {
+            const orders = JSON.parse(localStorage.getItem(ORDERS_KEY) || '[]');
+            const index = orders.findIndex(o => o.id === selectedOrder.id);
+            if (index === -1) return;
+            
+            orders[index].status = status;
+            localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
+            
+            // Refresh the selected order
+            selectOrder(selectedOrder.id);
+        }
+
+        function printTicket() {
+            if (!selectedOrder) return;
+            
+            // Create a new window for printing
+            const win = window.open('', 'Print Ticket', 'width=400,height=600');
+            win.document.write(`
+                <html>
+                <head>
+                    <title>Order Ticket</title>
+                    <style>
+                        body { font-family: monospace; padding: 20px; }
+                        .ticket { width: 300px; }
+                        .header { text-align: center; border-bottom: 1px solid #000; margin-bottom: 10px; }
+                        .detail { margin: 5px 0; }
+                        .footer { margin-top: 10px; text-align: center; }
+                    </style>
+                </head>
+                <body>
+                    <div class="ticket">
+                        <div class="header">
+                            <h2>PPT BAR - ORDER TICKET</h2>
+                            <p>${selectedOrder.id}</p>
+                            <p>${new Date(selectedOrder.timestamp).toLocaleString()}</p>
+                        </div>
+                        <div class="detail"><strong>Topic:</strong> ${selectedOrder.topic}</div>
+                        <div class="detail"><strong>Style:</strong> ${selectedOrder.vibe}</div>
+                        <div class="detail"><strong>Colors:</strong> ${selectedOrder.colors}</div>
+                        <div class="detail"><strong>Details:</strong> ${selectedOrder.details || 'None'}</div>
+                        <div class="detail"><strong>Contact:</strong> ${selectedOrder.contact || 'None'}</div>
+                        <div class="footer">
+                            Thank you for choosing PPT Bar!
+                        </div>
+                    </div>
+                    <script>window.print();window.close();<\/script>
+                </body>
+                </html>
+            `);
+        }
+
+        // Poll for new orders every 5 seconds
+        setInterval(updateOrdersList, 5000);
+        
+        // Initial load
+        updateOrdersList();
+    </script>
+</body>
+</html>

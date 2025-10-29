@@ -1,0 +1,25 @@
+{
+  "name": "pptbar",
+  "version": "1.0.0",
+  "description": "Digital kiosk system for PPT Bar - Get custom PowerPoint presentations made by experts while you wait",
+  "main": "index.html",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "ppt",
+    "powerpoint",
+    "kiosk",
+    "digital-signage"
+  ],
+  "author": "PPT Bar",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/your-username/pptbar.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-username/pptbar/issues"
+  },
+  "homepage": "https://your-username.github.io/pptbar"
+}

@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT Bar - Digital Kiosk System</title>
+    <style>
+        /* Reset and base styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.5;
+            background: #f7fafc;
+        }
+
+        /* Login Overlay */
+        .login-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .login-box {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .login-box h2 {
+            margin-top: 0;
+            color: #2d3748;
+        }
+
+        .login-box input {
+            width: 100%;
+            padding: 0.75rem;
+            margin: 0.5rem 0 1rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 6px;
+        }
+
+        /* Navigation */
+        .tabs {
+            background: white;
+            padding: 1rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab-btn {
+            padding: 0.5rem 1rem;
+            margin: 0 0.5rem;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1rem;
+            color: #4a5568;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab-btn.active {
+            color: #4299e1;
+            border-bottom-color: #4299e1;
+        }
+
+        /* Views */
+        .view {
+            display: none;
+            padding: 2rem;
+        }
+
+        .view.active {
+            display: block;
+        }
+
+        /* Form styles */
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #4a5568;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+
+        .submit-btn {
+            background: #4299e1;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+        }
+
+        .submit-btn:hover {
+            background: #3182ce;
+        }
+
+        /* Chef view */
+        #chef {
+            display: none;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+        }
+
+        .orders-list {
+            background: white;
+            padding: 1rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .order-card {
+            padding: 1rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+
+        /* Display view */
+        #display {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 60px);
+        }
+
+        .order-display {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <!-- Chef Login Overlay -->
+    <div id="chefLogin" class="login-overlay" style="display: none;">
+        <div class="login-box">
+            <h2>Chef Login</h2>
+            <div class="form-group">
+                <label for="password">Password</label>
+                <input type="password" id="chefPassword" placeholder="Enter chef password">
+            </div>
+            <button onclick="loginChef()" class="submit-btn">Login</button>
+            <p id="loginError" style="color: #e53e3e; margin-top: 8px;"></p>
+        </div>
+    </div>
+
+    <nav class="tabs" id="modeSelector">
+        <button class="tab-btn active" data-view="kiosk">Order</button>
+        <button class="tab-btn" data-view="chef">Chef</button>
+        <button class="tab-btn" data-view="display">Display</button>
+    </nav>
+
+    <!-- Kiosk View -->
+    <div id="kiosk" class="view active">
+        <form id="orderForm" onsubmit="submitOrder(event)">
+            <h2>Place Your Order</h2>
+            <div class="form-group">
+                <label for="name">Name</label>
+                <input type="text" id="name" required>
+            </div>
+            <div class="form-group">
+                <label for="topic">PPT Topic</label>
+                <input type="text" id="topic" required>
+            </div>
+            <div class="form-group">
+                <label for="slides">Number of Slides</label>
+                <select id="slides" required>
+                    <option value="5">5 Slides</option>
+                    <option value="10">10 Slides</option>
+                    <option value="15">15 Slides</option>
+                    <option value="20">20 Slides</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="style">Style Preference</label>
+                <select id="style" required>
+                    <option value="professional">Professional</option>
+                    <option value="creative">Creative</option>
+                    <option value="minimal">Minimal</option>
+                    <option value="modern">Modern</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="notes">Additional Notes</label>
+                <textarea id="notes" rows="4"></textarea>
+            </div>
+            <button type="submit" class="submit-btn">Place Order</button>
+        </form>
+    </div>
+
+    <!-- Chef View -->
+    <div id="chef" class="view">
+        <div class="orders-list">
+            <h2>Pending Orders</h2>
+            <div id="pendingOrders"></div>
+        </div>
+        <div class="orders-list">
+            <h2>Completed Orders</h2>
+            <div id="completedOrders"></div>
+        </div>
+    </div>
+
+    <!-- Display View -->
+    <div id="display" class="view">
+        <div class="order-display">
+            <h2>Now Serving</h2>
+            <div id="currentOrder">
+                <h3>No orders ready for pickup</h3>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Password protection
+    const CHEF_PASSWORD = 'Alibin123456'; // Change this in production
+        let isChefAuthenticated = false;
+
+        function showChefLogin() {
+            document.getElementById('chefLogin').style.display = 'flex';
+        }
+
+        function hideChefLogin() {
+            document.getElementById('chefLogin').style.display = 'none';
+        }
+
+        function loginChef() {
+            const password = document.getElementById('chefPassword').value;
+            if (password === CHEF_PASSWORD) {
+                isChefAuthenticated = true;
+                hideChefLogin();
+                // Show chef view
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById('chef').classList.add('active');
+                document.getElementById('chef').style.display = 'grid';
+                // Store auth in sessionStorage (clears when browser closes)
+                sessionStorage.setItem('chefAuthenticated', 'true');
+            } else {
+                document.getElementById('loginError').textContent = 'Incorrect password';
+            }
+        }
+
+        // Check for stored auth on page load
+        if (sessionStorage.getItem('chefAuthenticated') === 'true') {
+            isChefAuthenticated = true;
+        }
+
+        // Tab navigation
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const view = btn.dataset.view;
+                
+                if (view === 'chef' && !isChefAuthenticated) {
+                    showChefLogin();
+                    return;
+                }
+
+                document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById(view).classList.add('active');
+                
+                if(view === 'chef') {
+                    document.getElementById('chef').style.display = 'grid';
+                }
+                if(view === 'display') {
+                    document.getElementById('display').style.display = 'flex';
+                }
+            });
+        });
+
+        // Order handling
+        function submitOrder(event) {
+            event.preventDefault();
+            
+            const order = {
+                id: Date.now(),
+                name: document.getElementById('name').value,
+                topic: document.getElementById('topic').value,
+                slides: document.getElementById('slides').value,
+                style: document.getElementById('style').value,
+                notes: document.getElementById('notes').value,
+                status: 'pending',
+                timestamp: new Date().toISOString()
+            };
+
+            // Get existing orders
+            let orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            orders.push(order);
+            localStorage.setItem('orders', JSON.stringify(orders));
+
+            // Reset form
+            event.target.reset();
+            alert('Order submitted successfully!');
+            
+            // Update displays
+            updateChefView();
+            updateDisplayView();
+        }
+
+        function updateChefView() {
+            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            const pendingOrders = orders.filter(order => order.status === 'pending');
+            const completedOrders = orders.filter(order => order.status === 'completed');
+
+            document.getElementById('pendingOrders').innerHTML = pendingOrders.map(order => `
+                <div class="order-card">
+                    <h3>${order.name} - ${order.topic}</h3>
+                    <p>${order.slides} slides - ${order.style} style</p>
+                    <p>Notes: ${order.notes || 'None'}</p>
+                    <button onclick="completeOrder(${order.id})" class="submit-btn">Mark Complete</button>
+                </div>
+            `).join('');
+
+            document.getElementById('completedOrders').innerHTML = completedOrders.map(order => `
+                <div class="order-card">
+                    <h3>${order.name} - ${order.topic}</h3>
+                    <p>Completed</p>
+                </div>
+            `).join('');
+        }
+
+        function updateDisplayView() {
+            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            const completedOrders = orders.filter(order => order.status === 'completed');
+            const latestCompleted = completedOrders[completedOrders.length - 1];
+
+            if (latestCompleted) {
+                document.getElementById('currentOrder').innerHTML = `
+                    <h3>${latestCompleted.name}</h3>
+                    <p>Your presentation is ready!</p>
+                `;
+            } else {
+                document.getElementById('currentOrder').innerHTML = `
+                    <h3>No orders ready for pickup</h3>
+                `;
+            }
+        }
+
+        function completeOrder(orderId) {
+            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            const updatedOrders = orders.map(order => {
+                if (order.id === orderId) {
+                    return { ...order, status: 'completed' };
+                }
+                return order;
+            });
+            localStorage.setItem('orders', JSON.stringify(updatedOrders));
+            
+            updateChefView();
+            updateDisplayView();
+        }
+
+        // URL parameter handling
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.get('mode');
+        
+        if(mode) {
+            if (mode === 'chef' && !isChefAuthenticated) {
+                showChefLogin();
+            } else {
+                // Hide mode selector in kiosk/display modes
+                document.getElementById('modeSelector').style.display = 'none';
+                
+                // Auto-switch to correct view
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById(mode).classList.add('active');
+                
+                if(mode === 'chef') {
+                    document.getElementById('chef').style.display = 'grid';
+                }
+                if(mode === 'display') {
+                    document.getElementById('display').style.display = 'flex';
+                }
+            }
+
+            // Prevent screensaver/sleep in kiosk/display modes
+            if (mode !== 'chef') {
+                function keepAwake() {
+                    if(navigator.wakeLock) {
+                        navigator.wakeLock.request('screen')
+                            .catch(err => console.log('Wake Lock error:', err));
+                    }
+                }
+                document.addEventListener('visibilitychange', () => {
+                    if(document.visibilityState === 'visible') {
+                        keepAwake();
+                    }
+                });
+                keepAwake();
+            }
+        }
+
+        // Initial view updates
+        updateChefView();
+        updateDisplayView();
+    </script>
+</body>
+</html>

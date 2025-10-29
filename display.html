@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT Bar - Waiting Room Display</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #000;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .header {
+            background: #2d3748;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .orders {
+            display: flex;
+            gap: 1rem;
+            overflow-x: auto;
+            padding: 0.5rem;
+        }
+        .order-status {
+            background: #4a5568;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+        .clock {
+            font-size: 1.25rem;
+            font-weight: 500;
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+        .ad-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        .ad-container.visible {
+            opacity: 1;
+        }
+        .ad {
+            max-width: 90%;
+            max-height: 90%;
+            object-fit: contain;
+        }
+        .progress-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: #4299e1;
+            transition: width 0.1s linear;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="orders" id="orderStatus"></div>
+        <div class="clock" id="clock"></div>
+    </header>
+
+    <main class="main-content">
+        <!-- Ad containers will be added here dynamically -->
+    </main>
+
+    <div class="progress-bar" id="progressBar"></div>
+
+    <script>
+        // Demo ad content (in production, load from CMS or configuration)
+        const ads = [
+            { type: 'image', content: 'https://placekitten.com/800/600', duration: 5 },
+            { type: 'html', content: `
+                <div style="text-align:center;color:white;padding:2rem;">
+                    <h2>Need More Templates?</h2>
+                    <p style="font-size:1.5rem">Visit our online store!</p>
+                    <div style="margin:1rem 0">🎨 Over 1000+ templates</div>
+                    <div style="font-size:2rem">templatesrus.example.com</div>
+                </div>
+            `, duration: 4 },
+            { type: 'image', content: 'https://placekitten.com/900/600', duration: 5 },
+            { type: 'html', content: `
+                <div style="text-align:center;color:white;padding:2rem;">
+                    <h2>Pro Tip!</h2>
+                    <p style="font-size:1.5rem">Ask for our Corporate Package</p>
+                    <div style="margin:1rem 0">✨ Branded templates for your whole team</div>
+                    <div style="font-size:2rem">50% off this week!</div>
+                </div>
+            `, duration: 4 }
+        ];
+
+        let currentAdIndex = 0;
+        let containers = [];
+
+        function createAdContainer(ad) {
+            const container = document.createElement('div');
+            container.className = 'ad-container';
+            
+            if (ad.type === 'image') {
+                const img = document.createElement('img');
+                img.src = ad.content;
+                img.className = 'ad';
+                container.appendChild(img);
+            } else if (ad.type === 'html') {
+                container.innerHTML = ad.content;
+            }
+            
+            document.querySelector('.main-content').appendChild(container);
+            return container;
+        }
+
+        function showNextAd() {
+            // Hide all containers
+            containers.forEach(c => {
+                c.classList.remove('visible');
+            });
+            
+            // Show current ad
+            containers[currentAdIndex].classList.add('visible');
+            
+            // Start progress bar
+            const duration = ads[currentAdIndex].duration;
+            const progressBar = document.getElementById('progressBar');
+            let progress = 0;
+            const interval = 50; // Update every 50ms
+            const steps = duration * 1000 / interval;
+            
+            if (window.progressInterval) {
+                clearInterval(window.progressInterval);
+            }
+            
+            progressBar.style.width = '0%';
+            window.progressInterval = setInterval(() => {
+                progress++;
+                progressBar.style.width = (progress / steps * 100) + '%';
+                
+                if (progress >= steps) {
+                    clearInterval(window.progressInterval);
+                    currentAdIndex = (currentAdIndex + 1) % ads.length;
+                    showNextAd();
+                }
+            }, interval);
+        }
+
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString();
+        }
+
+        function updateOrderStatus() {
+            const orders = JSON.parse(localStorage.getItem('pptbar_orders') || '[]');
+            const activeOrders = orders.filter(o => o.status !== 'ready').slice(-3);
+            
+            const html = activeOrders.map(order => `
+                <div class="order-status">
+                    ${order.id}: ${order.status === 'new' ? 'Queued' : 'In Progress'}
+                </div>
+            `).join('');
+            
+            document.getElementById('orderStatus').innerHTML = html || '<div class="order-status">No active orders</div>';
+        }
+
+        // Initialize
+        containers = ads.map(ad => createAdContainer(ad));
+        showNextAd();
+        
+        // Update clock every second
+        setInterval(updateClock, 1000);
+        updateClock();
+        
+        // Check for order updates every 5 seconds
+        setInterval(updateOrderStatus, 5000);
+        updateOrderStatus();
+
+        // For demo/development: press spacebar to force next ad
+        document.addEventListener('keydown', e => {
+            if (e.code === 'Space') {
+                currentAdIndex = (currentAdIndex + 1) % ads.length;
+                showNextAd();
+            }
+        });
+    </script>
+</body>
+</html>
