@@ -187,6 +187,10 @@
                 <input type="text" id="name" required>
             </div>
             <div class="form-group">
+                <label for="email">Email</label>
+                <input type="email" id="email" required placeholder="your@email.com">
+            </div>
+            <div class="form-group">
                 <label for="topic">PPT Topic</label>
                 <input type="text" id="topic" required>
             </div>
@@ -304,6 +308,7 @@
             const order = {
                 id: Date.now(),
                 name: document.getElementById('name').value,
+                email: document.getElementById('email').value,
                 topic: document.getElementById('topic').value,
                 slides: document.getElementById('slides').value,
                 style: document.getElementById('style').value,
@@ -334,6 +339,7 @@
             document.getElementById('pendingOrders').innerHTML = pendingOrders.map(order => `
                 <div class="order-card">
                     <h3>${order.name} - ${order.topic}</h3>
+                    <p>Email: ${order.email}</p>
                     <p>${order.slides} slides - ${order.style} style</p>
                     <p>Notes: ${order.notes || 'None'}</p>
                     <button onclick="completeOrder(${order.id})" class="submit-btn">Mark Complete</button>

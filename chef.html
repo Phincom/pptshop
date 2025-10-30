@@ -112,7 +112,7 @@
             background: #4299e1;
             color: white;
         }
-        .print-btn {
+        .print-btn, .email-btn {
             background: #2d3748;
             color: white;
         }
@@ -120,6 +120,39 @@
             text-align: center;
             padding: 2rem;
             color: #a0aec0;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+        }
+        .modal-content {
+            background: #2d3748;
+            padding: 2rem;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            margin: 10% auto;
+        }
+        .modal-content form {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+        .modal-content input[type="email"] {
+            padding: 0.75rem;
+            border: 1px solid #4a5568;
+            border-radius: 4px;
+            background: #1a202c;
+            color: white;
+        }
+        .modal-content button {
+            width: 100%;
         }
     </style>
 </head>
@@ -178,6 +211,20 @@
                 <button class="start-btn" onclick="startOrder()">Start Working</button>
                 <button class="complete-btn" onclick="completeOrder()">Mark Complete</button>
                 <button class="print-btn" onclick="printTicket()">Print Ticket</button>
+                <button class="email-btn" onclick="showEmailForm()">Send Email</button>
+            </div>
+
+            <!-- Email Form Modal -->
+            <div id="emailModal" class="modal" style="display: none;">
+                <div class="modal-content">
+                    <h3>Send Receipt via Email</h3>
+                    <form id="emailForm" action="https://formspree.io/f/your-formspree-id" method="POST">
+                        <input type="email" name="email" placeholder="Customer's email" required>
+                        <input type="hidden" name="orderDetails" id="orderDetailsField">
+                        <button type="submit">Send Receipt</button>
+                        <button type="button" onclick="closeEmailModal()">Cancel</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -297,6 +344,29 @@
         // Poll for new orders every 5 seconds
         setInterval(updateOrdersList, 5000);
         
+        function showEmailForm() {
+            if (!selectedOrder) return;
+            const modal = document.getElementById('emailModal');
+            const orderDetails = document.getElementById('orderDetailsField');
+            
+            // Prepare order details for email
+            const details = `
+                Order ID: ${selectedOrder.id}
+                Time: ${new Date(selectedOrder.timestamp).toLocaleString()}
+                Topic: ${selectedOrder.topic}
+                Style: ${selectedOrder.vibe}
+                Colors: ${selectedOrder.colors}
+                Details: ${selectedOrder.details || 'None'}
+            `;
+            
+            orderDetails.value = details;
+            modal.style.display = 'block';
+        }
+
+        function closeEmailModal() {
+            document.getElementById('emailModal').style.display = 'none';
+        }
+
         // Initial load
         updateOrdersList();
     </script>
