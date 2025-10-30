@@ -244,8 +244,21 @@
 
     <script>
         // Password protection
-    const CHEF_PASSWORD = 'Alibin123456'; // Change this in production
+        // NOTE: The plain-text password is no longer embedded in the source.
+        // A SHA-256 hash of the chef password is stored in localStorage (`chefPasswordHash`).
+        // This avoids keeping the password in the file, but client-side auth is not fully secure
+        // (inspectors can still read localStorage or intercept input). For production, move
+        // auth to a server-side endpoint.
         let isChefAuthenticated = false;
+
+        // Helper: compute SHA-256 hash of a string and return hex
+        async function hashString(text) {
+            const enc = new TextEncoder();
+            const data = enc.encode(text);
+            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        }
 
         function showChefLogin() {
             document.getElementById('chefLogin').style.display = 'flex';
@@ -255,19 +268,49 @@
             document.getElementById('chefLogin').style.display = 'none';
         }
 
-        function loginChef() {
+        async function loginChef() {
             const password = document.getElementById('chefPassword').value;
-            if (password === CHEF_PASSWORD) {
+            const errorEl = document.getElementById('loginError');
+            errorEl.textContent = '';
+            if (!password) {
+                errorEl.textContent = 'Please enter a password';
+                return;
+            }
+
+            const enteredHash = await hashString(password);
+            const storedHash = localStorage.getItem('chefPasswordHash');
+
+            if (!storedHash) {
+                // First-time setup: require confirmation
+                const confirmPwd = prompt('No chef password set. Enter the new password again to confirm:');
+                if (confirmPwd === null) {
+                    errorEl.textContent = 'Password setup cancelled';
+                    return;
+                }
+                if (confirmPwd !== password) {
+                    errorEl.textContent = 'Passwords did not match. Try again.';
+                    return;
+                }
+                // Store the hash (not the plain password)
+                localStorage.setItem('chefPasswordHash', enteredHash);
                 isChefAuthenticated = true;
                 hideChefLogin();
-                // Show chef view
                 document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
                 document.getElementById('chef').classList.add('active');
                 document.getElementById('chef').style.display = 'grid';
-                // Store auth in sessionStorage (clears when browser closes)
+                sessionStorage.setItem('chefAuthenticated', 'true');
+                return;
+            }
+
+            if (enteredHash === storedHash) {
+                isChefAuthenticated = true;
+                hideChefLogin();
+                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                document.getElementById('chef').classList.add('active');
+                document.getElementById('chef').style.display = 'grid';
                 sessionStorage.setItem('chefAuthenticated', 'true');
             } else {
-                document.getElementById('loginError').textContent = 'Incorrect password';
+                errorEl.textContent = 'Incorrect password';
             }
         }
 
