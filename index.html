@@ -260,54 +260,14 @@
     </div>
 
     <script>
-        // Advanced security system - inspection-proof
+        // Secure authentication
         let isChefAuthenticated = false;
         let loginAttempts = 0;
         let lastAttemptTime = 0;
         
-        // Security configuration - obfuscated and split
-        const _0x5f2c = [
-            btoa(String.fromCharCode(77,65,88,95,65,84,84,69,77,80,84,83)), // "MAX_ATTEMPTS"
-            btoa(String.fromCharCode(76,79,67,75,79,85,84,95,84,73,77,69)), // "LOCKOUT_TIME"
-            btoa(String.fromCharCode(67,72,69,70,95,75,69,89))              // "CHEF_KEY"
-        ];
-        
-        // Anti-inspection guards
-        const _sc = new Proxy({}, {
-            get: function(target, prop) {
-                if (prop === atob(_0x5f2c[0])) return 3;
-                if (prop === atob(_0x5f2c[1])) return 30 * 60 * 1000;
-                return null;
-            }
-        });
-        
-        // Anti-tampering protection
-        (function() {
-            let _t = Date.now();
-            setInterval(() => {
-                if (Date.now() - _t > 1000) {
-                    // Detected debugger pause
-                    sessionStorage.clear();
-                    localStorage.clear();
-                    location.reload();
-                }
-                _t = Date.now();
-            }, 100);
-            
-            // Prevent console access
-            const _dummyConsole = {};
-            ['log','debug','info','warn','error','table','trace'].forEach(
-                m => _dummyConsole[m] = function(){}
-            );
-            
-            // Override debug tools
-            Object.defineProperty(window, 'console', {
-                get: function() {
-                    return _dummyConsole;
-                },
-                set: function() {}
-            });
-        })();
+        // Constants
+        const MAX_ATTEMPTS = 3;
+        const LOCKOUT_TIME = 30 * 60 * 1000; // 30 minutes
 
         // Secure key verification - split and encrypted
         async function verifyAccess(input) {
@@ -332,15 +292,30 @@
 
         
         async function enhancedHash(text) {
-         
-            let peppered = text + PEPPER;
-            let hash = await hashString(peppered);
-            
-            // Multiple iterations (key stretching)
-            for(let i = 0; i < 1000; i++) {
-                hash = await hashString(hash + PEPPER);
+            try {
+                // Salt generation (browser-specific)
+                const salt = window.navigator.userAgent + window.navigator.language;
+                
+                // Initial hash with salt
+                const encoder = new TextEncoder();
+                const data = encoder.encode(text + salt);
+                let hash = await crypto.subtle.digest('SHA-256', data);
+                
+                // Key stretching with multiple iterations
+                const iterations = 10000;
+                for(let i = 0; i < iterations; i++) {
+                    const newData = new Uint8Array([...new Uint8Array(hash), ...encoder.encode(salt)]);
+                    hash = await crypto.subtle.digest('SHA-256', newData);
+                }
+                
+                // Convert final hash to hex string
+                return Array.from(new Uint8Array(hash))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
+            } catch (error) {
+                console.error('Hashing error:', error);
+                throw new Error('Password processing failed');
             }
-            return hash;
         }
 
         // Rate limiting check
@@ -357,33 +332,71 @@
             return true;
         }
 
-        // Check URL for superuser password initialization with enhanced security
+        // Check URL for password initialization with enhanced security
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('init') === 'true' && urlParams.get('superpass')) {
             const superPass = urlParams.get('superpass');
-            // Password complexity check
-            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+            
+            // Password complexity requirements
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
+            const hasSequential = /(123|234|345|456|567|678|789|987|876|765|654|543|432|321)/.test(superPass);
+            const hasRepeated = /(.)\1{2,}/.test(superPass);
+            
             if (!passwordRegex.test(superPass)) {
-                alert('Password must be at least 8 characters and contain uppercase, lowercase, number, and special character');
+                alert('Password must be at least 12 characters and contain uppercase, lowercase, number, and special character');
+            } else if (hasSequential) {
+                alert('Password cannot contain sequential numbers');
+            } else if (hasRepeated) {
+                alert('Password cannot contain repeated characters');
             } else if (confirm('Initialize chef password? This will overwrite any existing password.')) {
-                enhancedHash(superPass).then(hash => {
-                    localStorage.setItem('chefPasswordHash', hash);
-                    localStorage.setItem('passwordLastChanged', Date.now());
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    alert('Chef password initialized successfully. You can now log in.');
-                });
+                try {
+                    enhancedHash(superPass).then(hash => {
+                        localStorage.setItem('chefPasswordHash', hash);
+                        localStorage.setItem('passwordLastChanged', Date.now().toString());
+                        localStorage.setItem('passwordHistory', JSON.stringify([hash])); // For preventing password reuse
+                        window.history.replaceState({}, document.title, window.location.pathname);
+                        alert('Chef password initialized successfully. You can now log in.');
+                    });
+                } catch (error) {
+                    alert('Error initializing password. Please try again.');
+                    console.error('Password initialization error:', error);
+                }
             }
         }
 
-        // Password expiration check (90 days)
+        // Password expiration and security checks
         function checkPasswordExpiration() {
-            const lastChanged = parseInt(localStorage.getItem('passwordLastChanged') || '0');
-            const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
-            if (Date.now() - lastChanged > ninetyDaysMs) {
-                alert('Password expired. Please reset using the initialization URL.');
+            try {
+                // Get last password change timestamp
+                const lastChanged = parseInt(localStorage.getItem('passwordLastChanged') || '0');
+                if (isNaN(lastChanged)) {
+                    throw new Error('Invalid password timestamp');
+                }
+
+                // Check for expiration (90 days)
+                const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+                if (Date.now() - lastChanged > ninetyDaysMs) {
+                    throw new Error('Password expired. Please reset using the initialization URL.');
+                }
+
+                // Check if password hash exists
+                const storedHash = localStorage.getItem('chefPasswordHash');
+                if (!storedHash) {
+                    throw new Error('Password not initialized');
+                }
+
+                // Check password history format
+                const passwordHistory = JSON.parse(localStorage.getItem('passwordHistory') || '[]');
+                if (!Array.isArray(passwordHistory)) {
+                    throw new Error('Invalid password history');
+                }
+
+                return true;
+            } catch (error) {
+                console.error('Password validation error:', error);
+                alert(error.message || 'Password validation failed');
                 return false;
             }
-            return true;
         }
 
         // Clear auth after inactivity (15 minutes)
@@ -422,71 +435,61 @@
         async function loginChef() {
             const errorEl = document.getElementById('loginError');
             errorEl.textContent = '';
-
+            
             try {
-                // Check rate limiting
-                checkRateLimit();
-                
-                // Check password expiration
-                if (!checkPasswordExpiration()) {
-                    return;
+                // Rate limiting check
+                const now = Date.now();
+                if (loginAttempts >= MAX_ATTEMPTS) {
+                    const timeElapsed = now - lastAttemptTime;
+                    if (timeElapsed < LOCKOUT_TIME) {
+                        const minutesLeft = Math.ceil((LOCKOUT_TIME - timeElapsed) / 60000);
+                        throw new Error(`Too many attempts. Please wait ${minutesLeft} minutes.`);
+                    }
+                    loginAttempts = 0;
                 }
 
                 const password = document.getElementById('chefPassword').value;
                 if (!password) {
-                    errorEl.textContent = 'Please enter a password';
-                    return;
+                    throw new Error('Please enter a password');
                 }
 
-                // Use enhanced hashing
-                const enteredHash = await enhancedHash(password);
+                // Check if password is expired
+                if (!checkPasswordExpiration()) {
+                    throw new Error('Password expired. Please reset using initialization URL.');
+                }
+
+                // Verify password using stored hash
                 const storedHash = localStorage.getItem('chefPasswordHash');
+                if (!storedHash) {
+                    throw new Error('System not initialized. Please use initialization URL.');
+                }
+
+                const enteredHash = await enhancedHash(password);
                 
-                // Track login attempt
                 loginAttempts++;
-                lastAttemptTime = Date.now();
+                lastAttemptTime = now;
 
-            if (!storedHash) {
-                // First-time setup: require confirmation
-                const confirmPwd = prompt('No chef password set. Enter the new password again to confirm:');
-                if (confirmPwd === null) {
-                    errorEl.textContent = 'Password setup cancelled';
+                if (enteredHash === storedHash) {
+                    loginAttempts = 0;
+                    isChefAuthenticated = true;
+                    hideChefLogin();
+                    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+                    document.getElementById('chef').classList.add('active');
+                    document.getElementById('chef').style.display = 'grid';
+                    sessionStorage.setItem('chefAuthenticated', 'true');
+                    resetInactivityTimer();
                     return;
                 }
-                if (confirmPwd !== password) {
-                    errorEl.textContent = 'Passwords did not match. Try again.';
-                    return;
-                }
-                // Store the hash (not the plain password)
-                localStorage.setItem('chefPasswordHash', enteredHash);
-                isChefAuthenticated = true;
-                hideChefLogin();
-                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-                document.getElementById('chef').classList.add('active');
-                document.getElementById('chef').style.display = 'grid';
-                sessionStorage.setItem('chefAuthenticated', 'true');
-                return;
-            }
 
-            if (enteredHash === storedHash) {
-                loginAttempts = 0; // Reset on successful login
-                isChefAuthenticated = true;
-                hideChefLogin();
-                document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-                document.getElementById('chef').classList.add('active');
-                document.getElementById('chef').style.display = 'grid';
-                sessionStorage.setItem('chefAuthenticated', 'true');
-                resetInactivityTimer(); // Start inactivity monitoring
-            } else {
-                errorEl.textContent = 'Incorrect password';
+                throw new Error('Incorrect password');
+
+            } catch (error) {
+                errorEl.textContent = error.message;
                 if (loginAttempts >= MAX_ATTEMPTS) {
                     errorEl.textContent = `Account locked. Please try again in ${LOCKOUT_TIME / 60000} minutes.`;
                 }
             }
-        } catch (error) {
-            errorEl.textContent = error.message;
         }
-    }
 
         // Check for stored auth on page load
         if (sessionStorage.getItem('chefAuthenticated') === 'true' && checkPasswordExpiration()) {
@@ -711,3 +714,16 @@
     </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                     
