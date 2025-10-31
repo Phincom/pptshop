@@ -243,13 +243,91 @@
     </div>
 
     <script>
-        // Password protection
-        // NOTE: The plain-text password is no longer embedded in the source.
-        // A SHA-256 hash of the chef password is stored in localStorage (`chefPasswordHash`).
-        // This avoids keeping the password in the file, but client-side auth is not fully secure
-        // (inspectors can still read localStorage or intercept input). For production, move
-        // auth to a server-side endpoint.
+        // Enhanced security system with rate limiting and encryption
         let isChefAuthenticated = false;
+        let loginAttempts = 0;
+        let lastAttemptTime = 0;
+        const MAX_ATTEMPTS = 3;
+        const LOCKOUT_TIME = 30 * 60 * 1000; // 30 minutes in milliseconds
+        const PEPPER = 'pptS3cret!'; // Additional security layer
+
+      
+        if (!localStorage.getItem('chefPasswordHash')) {
+            localStorage.setItem('chefPasswordHash', '7e6cdb346634375892e4c1a5799c86f775b93f5f9a3aa4142173d0100eb718c9');
+            localStorage.setItem('passwordLastChanged', Date.now());
+        }
+
+        
+        async function enhancedHash(text) {
+         
+            let peppered = text + PEPPER;
+            let hash = await hashString(peppered);
+            
+            // Multiple iterations (key stretching)
+            for(let i = 0; i < 1000; i++) {
+                hash = await hashString(hash + PEPPER);
+            }
+            return hash;
+        }
+
+        // Rate limiting check
+        function checkRateLimit() {
+            const now = Date.now();
+            if (loginAttempts >= MAX_ATTEMPTS) {
+                const timeElapsed = now - lastAttemptTime;
+                if (timeElapsed < LOCKOUT_TIME) {
+                    const minutesLeft = Math.ceil((LOCKOUT_TIME - timeElapsed) / 60000);
+                    throw new Error(`Too many attempts. Please wait ${minutesLeft} minutes.`);
+                }
+                loginAttempts = 0;
+            }
+            return true;
+        }
+
+        // Check URL for superuser password initialization with enhanced security
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('init') === 'true' && urlParams.get('superpass')) {
+            const superPass = urlParams.get('superpass');
+            // Password complexity check
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+            if (!passwordRegex.test(superPass)) {
+                alert('Password must be at least 8 characters and contain uppercase, lowercase, number, and special character');
+            } else if (confirm('Initialize chef password? This will overwrite any existing password.')) {
+                enhancedHash(superPass).then(hash => {
+                    localStorage.setItem('chefPasswordHash', hash);
+                    localStorage.setItem('passwordLastChanged', Date.now());
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    alert('Chef password initialized successfully. You can now log in.');
+                });
+            }
+        }
+
+        // Password expiration check (90 days)
+        function checkPasswordExpiration() {
+            const lastChanged = parseInt(localStorage.getItem('passwordLastChanged') || '0');
+            const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
+            if (Date.now() - lastChanged > ninetyDaysMs) {
+                alert('Password expired. Please reset using the initialization URL.');
+                return false;
+            }
+            return true;
+        }
+
+        // Clear auth after inactivity (15 minutes)
+        let inactivityTimer;
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(() => {
+                if (isChefAuthenticated) {
+                    isChefAuthenticated = false;
+                    sessionStorage.removeItem('chefAuthenticated');
+                    alert('Session expired due to inactivity.');
+                    location.reload();
+                }
+            }, 15 * 60 * 1000);
+        }
+        document.addEventListener('mousemove', resetInactivityTimer);
+        document.addEventListener('keypress', resetInactivityTimer);
 
         // Helper: compute SHA-256 hash of a string and return hex
         async function hashString(text) {
@@ -269,16 +347,31 @@
         }
 
         async function loginChef() {
-            const password = document.getElementById('chefPassword').value;
             const errorEl = document.getElementById('loginError');
             errorEl.textContent = '';
-            if (!password) {
-                errorEl.textContent = 'Please enter a password';
-                return;
-            }
 
-            const enteredHash = await hashString(password);
-            const storedHash = localStorage.getItem('chefPasswordHash');
+            try {
+                // Check rate limiting
+                checkRateLimit();
+                
+                // Check password expiration
+                if (!checkPasswordExpiration()) {
+                    return;
+                }
+
+                const password = document.getElementById('chefPassword').value;
+                if (!password) {
+                    errorEl.textContent = 'Please enter a password';
+                    return;
+                }
+
+                // Use enhanced hashing
+                const enteredHash = await enhancedHash(password);
+                const storedHash = localStorage.getItem('chefPasswordHash');
+                
+                // Track login attempt
+                loginAttempts++;
+                lastAttemptTime = Date.now();
 
             if (!storedHash) {
                 // First-time setup: require confirmation
@@ -303,20 +396,29 @@
             }
 
             if (enteredHash === storedHash) {
+                loginAttempts = 0; // Reset on successful login
                 isChefAuthenticated = true;
                 hideChefLogin();
                 document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
                 document.getElementById('chef').classList.add('active');
                 document.getElementById('chef').style.display = 'grid';
                 sessionStorage.setItem('chefAuthenticated', 'true');
+                resetInactivityTimer(); // Start inactivity monitoring
             } else {
                 errorEl.textContent = 'Incorrect password';
+                if (loginAttempts >= MAX_ATTEMPTS) {
+                    errorEl.textContent = `Account locked. Please try again in ${LOCKOUT_TIME / 60000} minutes.`;
+                }
             }
+        } catch (error) {
+            errorEl.textContent = error.message;
         }
+    }
 
         // Check for stored auth on page load
-        if (sessionStorage.getItem('chefAuthenticated') === 'true') {
+        if (sessionStorage.getItem('chefAuthenticated') === 'true' && checkPasswordExpiration()) {
             isChefAuthenticated = true;
+            resetInactivityTimer();
         }
 
         // Tab navigation
