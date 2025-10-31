@@ -335,12 +335,20 @@
         // Check URL for password initialization with enhanced security
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.get('init') === 'true' && urlParams.get('superpass')) {
+            console.log('Initializing password...');
             const superPass = urlParams.get('superpass');
+            console.log('Password length:', superPass.length);
             
             // Password complexity requirements
             const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{12,}$/;
             const hasSequential = /(123|234|345|456|567|678|789|987|876|765|654|543|432|321)/.test(superPass);
             const hasRepeated = /(.)\1{2,}/.test(superPass);
+            
+            console.log('Password checks:', {
+                meetsRegex: passwordRegex.test(superPass),
+                hasSequential,
+                hasRepeated
+            });
             
             if (!passwordRegex.test(superPass)) {
                 alert('Password must be at least 12 characters and contain uppercase, lowercase, number, and special character');
@@ -437,6 +445,7 @@
             errorEl.textContent = '';
             
             try {
+                console.log('Attempting login...');
                 // Rate limiting check
                 const now = Date.now();
                 if (loginAttempts >= MAX_ATTEMPTS) {
@@ -465,11 +474,16 @@
                 }
 
                 const enteredHash = await enhancedHash(password);
+                console.log('Login attempt:', {
+                    storedHashExists: !!storedHash,
+                    hashesMatch: enteredHash === storedHash
+                });
                 
                 loginAttempts++;
                 lastAttemptTime = now;
 
                 if (enteredHash === storedHash) {
+                    console.log('Login successful');
                     loginAttempts = 0;
                     isChefAuthenticated = true;
                     hideChefLogin();
