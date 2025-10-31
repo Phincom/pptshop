@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PPT Bar - Order Tracking</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: #f7fafc;
+            padding: 2rem;
+        }
+        .tracker-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-weight: 500;
+            font-size: 0.875rem;
+        }
+        .status-pending { background: #fed7aa; color: #9a3412; }
+        .status-in-progress { background: #bae6fd; color: #0369a1; }
+        .status-completed { background: #bbf7d0; color: #166534; }
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            margin: 1rem 0;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 100%;
+            background: #3b82f6;
+            transition: width 0.3s ease;
+        }
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        input {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .detail-row {
+            margin: 1rem 0;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 4px;
+        }
+        .download-btn {
+            background: #059669;
+            color: white;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 1rem;
+        }
+        .home-btn {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: #64748b;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="tracker-container">
+        <a href="index.html" class="home-btn">← Back to Order Form</a>
+        <h1>Track Your Order</h1>
+        
+        <div class="form-group">
+            <input type="text" id="orderId" placeholder="Enter your Order ID">
+            <button onclick="trackOrder()">Track Order</button>
+        </div>
+
+        <div id="orderDetails" style="display: none;">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+
+            <div class="detail-row">
+                <h3>Order #<span id="displayOrderId"></span></h3>
+                <p>Status: <span id="orderStatus" class="status-badge"></span></p>
+                <p>Ordered: <span id="orderTime"></span></p>
+                <p>Estimated Completion: <span id="estimatedTime"></span></p>
+            </div>
+
+            <div class="detail-row">
+                <h3>Order Details</h3>
+                <p>Topic: <span id="orderTopic"></span></p>
+                <p>Slides: <span id="orderSlides"></span></p>
+                <p>Style: <span id="orderStyle"></span></p>
+                <p>Delivery Method: <span id="deliveryMethod"></span></p>
+            </div>
+
+            <div id="downloadSection" style="display: none;">
+                <a href="#" class="download-btn" id="downloadBtn">Download Your Presentation</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function trackOrder() {
+            const orderId = document.getElementById('orderId').value;
+            if (!orderId) {
+                alert('Please enter an Order ID');
+                return;
+            }
+
+            const orders = JSON.parse(localStorage.getItem('orders') || '[]');
+            const order = orders.find(o => o.id.toString() === orderId);
+            
+            if (!order) {
+                alert('Order not found. Please check your Order ID.');
+                return;
+            }
+
+            // Display order details
+            document.getElementById('orderDetails').style.display = 'block';
+            document.getElementById('displayOrderId').textContent = order.id;
+            
+            // Update status badge
+            const statusEl = document.getElementById('orderStatus');
+            statusEl.textContent = order.status;
+            statusEl.className = 'status-badge status-' + order.status;
+
+            // Update progress bar
+            const progress = order.status === 'pending' ? 33 : 
+                           order.status === 'in-progress' ? 66 : 
+                           order.status === 'completed' ? 100 : 0;
+            document.getElementById('progressBar').style.width = progress + '%';
+
+            // Update times
+            document.getElementById('orderTime').textContent = new Date(order.timestamp).toLocaleString();
+            document.getElementById('estimatedTime').textContent = new Date(order.estimatedCompletion).toLocaleString();
+
+            // Update details
+            document.getElementById('orderTopic').textContent = order.topic;
+            document.getElementById('orderSlides').textContent = order.slides + ' slides';
+            document.getElementById('orderStyle').textContent = order.style;
+            document.getElementById('deliveryMethod').textContent = order.deliveryMethod;
+
+            // Show download section if completed
+            const downloadSection = document.getElementById('downloadSection');
+            if (order.status === 'completed' && order.fileUrl) {
+                downloadSection.style.display = 'block';
+                document.getElementById('downloadBtn').href = order.fileUrl;
+            } else {
+                downloadSection.style.display = 'none';
+            }
+        }
+
+        // Auto-track if order ID is in URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const trackingId = urlParams.get('order');
+        if (trackingId) {
+            document.getElementById('orderId').value = trackingId;
+            trackOrder();
+        }
+    </script>
+</body>
+</html>

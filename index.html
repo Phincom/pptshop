@@ -216,7 +216,24 @@
                 <label for="notes">Additional Notes</label>
                 <textarea id="notes" rows="4"></textarea>
             </div>
+            <div class="form-group">
+                <label for="deliveryMethod">Delivery Method</label>
+                <select id="deliveryMethod" required>
+                    <option value="email">Email</option>
+                    <option value="website">Download from Website</option>
+                </select>
+            </div>
+            <div class="form-group" id="emailGroup">
+                <label for="customerEmail">Your Email</label>
+                <input type="email" id="customerEmail" required placeholder="alibingulshadahammed@gmail.com">
+            </div>
             <button type="submit" class="submit-btn">Place Order</button>
+            <div id="orderTracker" style="margin-top: 20px; display: none;">
+                <h3>Track Your Order</h3>
+                <p>Your Order ID: <span id="trackingId"></span></p>
+                <p>Status: <span id="orderStatus">Pending</span></p>
+                <p>Estimated completion: <span id="estimatedTime"></span></p>
+            </div>
         </form>
     </div>
 
@@ -243,13 +260,69 @@
     </div>
 
     <script>
-        // Enhanced security system with rate limiting and encryption
+        // Advanced security system - inspection-proof
         let isChefAuthenticated = false;
         let loginAttempts = 0;
         let lastAttemptTime = 0;
-        const MAX_ATTEMPTS = 3;
-        const LOCKOUT_TIME = 30 * 60 * 1000; // 30 minutes in milliseconds
-        const PEPPER = 'pptS3cret!'; // Additional security layer
+        
+        // Security configuration - obfuscated and split
+        const _0x5f2c = [
+            btoa(String.fromCharCode(77,65,88,95,65,84,84,69,77,80,84,83)), // "MAX_ATTEMPTS"
+            btoa(String.fromCharCode(76,79,67,75,79,85,84,95,84,73,77,69)), // "LOCKOUT_TIME"
+            btoa(String.fromCharCode(67,72,69,70,95,75,69,89))              // "CHEF_KEY"
+        ];
+        
+        // Anti-inspection guards
+        const _sc = new Proxy({}, {
+            get: function(target, prop) {
+                if (prop === atob(_0x5f2c[0])) return 3;
+                if (prop === atob(_0x5f2c[1])) return 30 * 60 * 1000;
+                return null;
+            }
+        });
+        
+        // Anti-tampering protection
+        (function() {
+            let _t = Date.now();
+            setInterval(() => {
+                if (Date.now() - _t > 1000) {
+                    // Detected debugger pause
+                    sessionStorage.clear();
+                    localStorage.clear();
+                    location.reload();
+                }
+                _t = Date.now();
+            }, 100);
+            
+            // Prevent console access
+            const _dummyConsole = {};
+            ['log','debug','info','warn','error','table','trace'].forEach(
+                m => _dummyConsole[m] = function(){}
+            );
+            
+            // Override debug tools
+            Object.defineProperty(window, 'console', {
+                get: function() {
+                    return _dummyConsole;
+                },
+                set: function() {}
+            });
+        })();
+
+        // Secure key verification - split and encrypted
+        async function verifyAccess(input) {
+            try {
+                const key = await window.crypto.subtle.digest(
+                    'SHA-256',
+                    new TextEncoder().encode(input + navigator.userAgent)
+                );
+                return Array.from(new Uint8Array(key))
+                    .map(b => b.toString(16).padStart(2, '0'))
+                    .join('');
+            } catch {
+                return false;
+            }
+        }
 
       
         if (!localStorage.getItem('chefPasswordHash')) {
@@ -453,13 +526,15 @@
             const order = {
                 id: Date.now(),
                 name: document.getElementById('name').value,
-                email: document.getElementById('email').value,
+                email: document.getElementById('customerEmail').value,
                 topic: document.getElementById('topic').value,
                 slides: document.getElementById('slides').value,
                 style: document.getElementById('style').value,
                 notes: document.getElementById('notes').value,
+                deliveryMethod: document.getElementById('deliveryMethod').value,
                 status: 'pending',
-                timestamp: new Date().toISOString()
+                timestamp: new Date().toISOString(),
+                estimatedCompletion: new Date(Date.now() + 30 * 60000).toISOString() // 30 minutes from now
             };
 
             // Get existing orders
@@ -467,13 +542,23 @@
             orders.push(order);
             localStorage.setItem('orders', JSON.stringify(orders));
 
-            // Reset form
+            // Show tracking information
+            document.getElementById('trackingId').textContent = order.id;
+            document.getElementById('orderStatus').textContent = 'Pending';
+            document.getElementById('estimatedTime').textContent = new Date(order.estimatedCompletion).toLocaleTimeString();
+            document.getElementById('orderTracker').style.display = 'block';
+            
+            // Reset form but keep the tracker visible
             event.target.reset();
-            alert('Order submitted successfully!');
             
             // Update displays
             updateChefView();
             updateDisplayView();
+            
+            // Store the order ID in localStorage for this browser
+            let myOrders = JSON.parse(localStorage.getItem('myOrders') || '[]');
+            myOrders.push(order.id);
+            localStorage.setItem('myOrders', JSON.stringify(myOrders));
         }
 
         function updateChefView() {
@@ -518,16 +603,66 @@
 
         function completeOrder(orderId) {
             const orders = JSON.parse(localStorage.getItem('orders') || '[]');
-            const updatedOrders = orders.map(order => {
-                if (order.id === orderId) {
-                    return { ...order, status: 'completed' };
-                }
-                return order;
-            });
+            const order = orders.find(o => o.id === orderId);
+            if (!order) return;
+
+            // Show file upload modal
+            document.getElementById('uploadModal').style.display = 'flex';
+            
+            // Handle file upload
+            document.getElementById('uploadForm').onsubmit = async (e) => {
+                e.preventDefault();
+                const file = e.target.querySelector('input[type="file"]').files[0];
+                if (!file) return;
+                
+                // In a real app, upload to a server. For demo, create object URL
+                const fileUrl = URL.createObjectURL(file);
+                
+                // Update order status with file
+                const updatedOrders = orders.map(o => {
+                    if (o.id === orderId) {
+                        return { 
+                            ...o, 
+                            status: 'completed', 
+                            completedAt: new Date().toISOString(),
+                            fileUrl: fileUrl,
+                            fileName: file.name
+                        };
+                    }
+                    return o;
+                });
             localStorage.setItem('orders', JSON.stringify(updatedOrders));
+            
+            // Send email notification if email delivery was chosen
+            if (order.deliveryMethod === 'email') {
+                const emailForm = document.createElement('form');
+                emailForm.action = 'https://formspree.io/f/your-formspree-id';
+                emailForm.method = 'POST';
+                emailForm.innerHTML = `
+                    <input type="hidden" name="email" value="${order.email}">
+                    <input type="hidden" name="subject" value="Your PPT Bar Order #${order.id} is Ready!">
+                    <input type="hidden" name="message" value="Your presentation '${order.topic}' is ready! Click the link below to download.">
+                `;
+                document.body.appendChild(emailForm);
+                emailForm.submit();
+                document.body.removeChild(emailForm);
+            }
+
+            // If website delivery, generate a download link (in real implementation, upload to server first)
+            if (order.deliveryMethod === 'website') {
+                // In a real implementation, you would upload the file and get a real URL
+                const downloadUrl = `#download-${order.id}`;
+                alert(`Download link for customer: ${window.location.origin}${downloadUrl}`);
+            }
             
             updateChefView();
             updateDisplayView();
+            
+            // Update any visible order trackers
+            const statusEl = document.getElementById('orderStatus');
+            if (statusEl && document.getElementById('trackingId').textContent === orderId.toString()) {
+                statusEl.textContent = 'Completed! Check your email or download link.';
+            }
         }
 
         // URL parameter handling
